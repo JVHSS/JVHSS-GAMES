@@ -2,204 +2,200 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Escape Room – Smart Rotation</title>
+<title>Rock Paper Scissors - Animation & Score</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #020617;
-  color: white;
+  height: 100vh;
+  background: #eef2ff;
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  font-family: Arial, sans-serif;
 }
 
-.room {
-  background: #0f172a;
+.game {
+  background: white;
   padding: 25px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 460px;
+  border-radius: 15px;
   text-align: center;
-  box-shadow: 0 0 25px #22d3ee;
+  width: 350px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
 }
 
-h1 { color: #22d3ee; }
-
-.timer {
-  color: #facc15;
-  font-size: 18px;
+.hands {
+  display: flex;
+  justify-content: space-between;
+  margin: 20px 0;
+  font-size: 80px;
+  perspective: 800px;
 }
 
-.question {
-  font-size: 18px;
-  margin: 15px 0;
+.hand {
+  display: inline-block;
+  transform-origin: bottom center;
+  transition: transform 0.3s ease;
 }
 
-input {
-  padding: 10px;
-  width: 80%;
-  border-radius: 6px;
+.playing .hand.user {
+  animation: moveForward 1.2s forwards;
+}
+
+.playing .hand.computer {
+  animation: moveForward 1.2s forwards;
+}
+
+@keyframes moveForward {
+  0% { transform: translateZ(0) rotate(0deg); }
+  25% { transform: translateZ(30px) rotate(15deg); }
+  50% { transform: translateZ(60px) rotate(-15deg); }
+  75% { transform: translateZ(30px) rotate(10deg); }
+  100% { transform: translateZ(0) rotate(0deg); }
+}
+
+.buttons button {
+  padding: 10px 14px;
+  margin: 5px;
   border: none;
-  text-align: center;
-}
-
-button {
-  padding: 10px 20px;
-  margin-top: 12px;
-  background: #22d3ee;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
+  border-radius: 8px;
+  background: #2563eb;
+  color: white;
   font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
-.hidden { display: none; }
+.buttons button:hover {
+  background: #1e40af;
+}
 
-img {
-  width: 100%;
-  max-width: 250px;
-  margin: 15px auto;
-  border-radius: 10px;
+#restartBtn {
+  background: #10b981; /* green */
+}
+
+#restartBtn:hover {
+  background: #047857;
+}
+
+.result {
+  margin-top: 15px;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.scoreboard {
+  margin-top: 15px;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-around;
 }
 </style>
 </head>
 
 <body>
 
-<div class="room">
-  <h1>🔐 Escape Room</h1>
-  <p>Question Set: <b id="setName"></b></p>
+<div class="game" id="game">
+  <h2>Rock Paper Scissors</h2>
 
-  <div class="timer">⏱ Time Left: <span id="time">90</span>s</div>
-
-  <div id="game">
-    <p>Question <span id="qno">1</span> / 10</p>
-    <div class="question" id="question"></div>
-    <input id="answer" placeholder="Type answer">
-    <br>
-    <button onclick="checkAnswer()">Submit</button>
+  <div class="hands">
+    <div class="hand user" id="userHand">✊</div>
+    <div class="hand computer" id="computerHand">✊</div>
   </div>
 
-  <div id="win" class="hidden">
-    <img src="https://cdn-icons-png.flaticon.com/512/3159/3159066.png">
-    <h2>🎉 YOU ESCAPED!</h2>
-    <button onclick="nextPlayer()">Next Player ▶</button>
+  <div class="buttons">
+    <button onclick="play('rock')">✊ Rock</button>
+    <button onclick="play('paper')">✋ Paper</button>
+    <button onclick="play('scissors')">✌ Scissors</button>
+    <button id="restartBtn" onclick="restartGame()" style="display:none;">🔄 Restart</button>
   </div>
 
-  <div id="trap" class="hidden">
-    <img src="https://cdn-icons-png.flaticon.com/512/564/564619.png">
-    <h2>⛔ YOU ARE TRAPPED!</h2>
-    <button onclick="nextPlayer()">Next Player ▶</button>
+  <div class="result" id="result">Choose your move</div>
+
+  <div class="scoreboard">
+    <div>User: <span id="userScore">0</span></div>
+    <div>AI: <span id="aiScore">0</span></div>
   </div>
 </div>
 
 <script>
-// 🔁 10 QUESTIONS PER SET (AGE 13–15)
-const sets = [
-  [
-    {q:"5 × 6 ?",a:"30"},
-    {q:"Capital of India?",a:"new delhi"},
-    {q:"Largest planet?",a:"jupiter"},
-    {q:"√64 ?",a:"8"},
-    {q:"Gas we breathe?",a:"oxygen"},
-    {q:"Sun is a?",a:"star"},
-    {q:"7 continents true/false?",a:"true"},
-    {q:"Fastest land animal?",a:"cheetah"},
-    {q:"H2O is?",a:"water"},
-    {q:"Father of computers?",a:"charles babbage"}
-  ],
-  [
-    {q:"9 × 7 ?",a:"63"},
-    {q:"Capital of Tamil Nadu?",a:"chennai"},
-    {q:"Largest mammal?",a:"blue whale"},
-    {q:"Square of 9?",a:"81"},
-    {q:"Plants use sunlight for?",a:"photosynthesis"},
-    {q:"Earth satellite?",a:"moon"},
-    {q:"Smallest prime?",a:"2"},
-    {q:"Liquid metal?",a:"mercury"},
-    {q:"Vitamin from sun?",a:"vitamin d"},
-    {q:"Our galaxy?",a:"milky way"}
-  ],
-  [
-    {q:"8 × 8 ?",a:"64"},
-    {q:"National bird of India?",a:"peacock"},
-    {q:"Chemical symbol of iron?",a:"fe"},
-    {q:"Angle of straight line?",a:"180"},
-    {q:"Gas in soda?",a:"carbon dioxide"},
-    {q:"Fastest bird?",a:"falcon"},
-    {q:"CPU full form?",a:"central processing unit"},
-    {q:"Unit of force?",a:"newton"},
-    {q:"Nearest star?",a:"sun"},
-    {q:"Blood is pumped by?",a:"heart"}
-  ]
-];
+const userHand = document.getElementById("userHand");
+const computerHand = document.getElementById("computerHand");
+const result = document.getElementById("result");
+const game = document.getElementById("game");
+const userScoreEl = document.getElementById("userScore");
+const aiScoreEl = document.getElementById("aiScore");
+const restartBtn = document.getElementById("restartBtn");
 
-let setIndex = 0;
-let qIndex = 0;
-let time = 90;
-let timer;
+let userScore = 0;
+let aiScore = 0;
 
-// LOAD QUESTION
-function loadQuestion() {
-  document.getElementById("question").textContent = sets[setIndex][qIndex].q;
-  document.getElementById("qno").textContent = qIndex + 1;
-  document.getElementById("answer").value = "";
+const hands = {
+  rock: "✊",
+  paper: "✋",
+  scissors: "✌"
+};
+
+function play(userChoice) {
+  if (userScore === 3 || aiScore === 3) return; // Best of 5
+
+  const choices = ["rock", "paper", "scissors"];
+  const computerChoice = choices[Math.floor(Math.random() * 3)];
+
+  // Reset hands to rock for animation
+  userHand.textContent = "✊";
+  computerHand.textContent = "✊";
+
+  game.classList.add("playing");
+  result.innerText = "Rock... Paper... Scissors...";
+
+  setTimeout(() => {
+    userHand.textContent = hands[userChoice];
+    computerHand.textContent = hands[computerChoice];
+    game.classList.remove("playing");
+
+    // Determine winner
+    if (userChoice === computerChoice) {
+      result.innerText = "It's a Draw 🤝";
+    } else if (
+      (userChoice === "rock" && computerChoice === "scissors") ||
+      (userChoice === "paper" && computerChoice === "rock") ||
+      (userChoice === "scissors" && computerChoice === "paper")
+    ) {
+      userScore++;
+      result.innerText = "You Win 🎉";
+    } else {
+      aiScore++;
+      result.innerText = "You Lose 😢";
+    }
+
+    userScoreEl.textContent = userScore;
+    aiScoreEl.textContent = aiScore;
+
+    // Check for Best-of-5 winner
+    if (userScore === 3) {
+      result.innerText = "🏆 You won the best of 5!";
+      restartBtn.style.display = "inline-block"; // Show restart
+    }
+    if (aiScore === 3) {
+      result.innerText = "🤖 AI won the best of 5!";
+      restartBtn.style.display = "inline-block"; // Show restart
+    }
+  }, 1200);
 }
 
-// CHECK ANSWER
-function checkAnswer() {
-  let user = document.getElementById("answer").value.toLowerCase().trim();
-  if (user === sets[setIndex][qIndex].a) {
-    qIndex++;
-    if (qIndex === 10) endGame("win");
-    else loadQuestion();
-  } else {
-    endGame("trap");
-  }
+function restartGame() {
+  userScore = 0;
+  aiScore = 0;
+  userScoreEl.textContent = userScore;
+  aiScoreEl.textContent = aiScore;
+  result.innerText = "Choose your move";
+  userHand.textContent = "✊";
+  computerHand.textContent = "✊";
+  restartBtn.style.display = "none"; // Hide restart
 }
-
-// TIMER
-function startTimer() {
-  timer = setInterval(() => {
-    time--;
-    document.getElementById("time").textContent = time;
-    if (time <= 0) endGame("trap");
-  }, 1000);
-}
-
-// END GAME
-function endGame(type) {
-  clearInterval(timer);
-  document.getElementById("game").classList.add("hidden");
-  document.getElementById(type).classList.remove("hidden");
-}
-
-// NEXT PLAYER (NEW QUESTIONS)
-function nextPlayer() {
-  clearInterval(timer);
-  document.getElementById("win").classList.add("hidden");
-  document.getElementById("trap").classList.add("hidden");
-  document.getElementById("game").classList.remove("hidden");
-
-  setIndex = (setIndex + 1) % sets.length;
-  document.getElementById("setName").textContent = "SET " + (setIndex + 1);
-
-  qIndex = 0;
-  time = 90;
-  document.getElementById("time").textContent = time;
-
-  loadQuestion();
-  startTimer();
-}
-
-// START FIRST PLAYER
-document.getElementById("setName").textContent = "SET 1";
-loadQuestion();
-startTimer();
 </script>
 
 </body>
