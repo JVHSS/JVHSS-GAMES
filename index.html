@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Neuro Reaction Challenge</title>
+<title>Focus Vision Test</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 body{
   margin:0;
   font-family:Arial, sans-serif;
-  background:#050505;
-  color:#fff;
+  background:#000;
+  color:white;
   text-align:center;
 }
 
@@ -20,216 +20,270 @@ h1{
 }
 
 .panel{
-  max-width:500px;
+  max-width:520px;
   margin:auto;
-  padding:20px;
+  padding:15px;
 }
 
 input{
   padding:10px;
-  margin:5px;
-  border-radius:5px;
+  width:70%;
+  border-radius:6px;
   border:none;
   text-align:center;
 }
 
 button{
   padding:10px 20px;
-  background:#00ffcc;
+  margin:10px;
   border:none;
   border-radius:6px;
   font-size:16px;
+  background:#00ffcc;
   cursor:pointer;
 }
 
+button:hover{background:#00ccaa;}
+
 #arena{
-  margin:30px auto;
-  width:300px;
-  height:300px;
+  position:relative;
+  width:320px;
+  height:320px;
+  margin:20px auto;
+  border:2px solid #00ffcc;
+  overflow:hidden;
+}
+
+.target{
+  position:absolute;
+  width:40px;
+  height:40px;
   border-radius:50%;
-  background:#330000;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:22px;
+  font-size:20px;
   cursor:pointer;
-  box-shadow:0 0 40px red;
-  transition:0.3s;
 }
 
-.green{
-  background:#003300 !important;
-  box-shadow:0 0 60px #00ff00 !important;
+.correct{
+  background:lime;
+  color:black;
+  box-shadow:0 0 15px lime;
 }
 
 .fake{
-  background:#222 !important;
-  box-shadow:0 0 40px orange !important;
+  background:red;
+  color:white;
 }
 
-.locked{
-  background:#111 !important;
-  box-shadow:0 0 60px red !important;
+.timer{
+  font-size:22px;
+  color:yellow;
+}
+
+.score{
+  font-size:20px;
+}
+
+.result{
+  font-size:26px;
+  margin-top:15px;
 }
 
 .leaderboard{
+  max-width:400px;
+  margin:20px auto;
   background:#111;
   padding:15px;
   border-radius:10px;
-  margin:20px auto;
-  max-width:500px;
   text-align:left;
 }
 
-.leaderboard h2{color:gold;}
+.leaderboard h2{
+  color:gold;
+  text-align:center;
+}
+
 .hidden{display:none;}
 </style>
 </head>
 
 <body>
 
-<h1>🧠 NEURO REACTION CHALLENGE</h1>
+<h1>👀 FOCUS VISION TEST</h1>
 
 <div class="panel">
-  <input id="name" placeholder="Player Name">
-  <input id="age" placeholder="Age" type="number">
-  <br><br>
-  <button onclick="startTest()">START TEST</button>
+  <input id="playerName" placeholder="Enter Player Name">
+  <div class="timer">⏱ Time: <span id="time">30</span>s</div>
+  <div class="score">Score: <span id="score">0</span></div>
+  <button onclick="startGame()">START TEST</button>
 </div>
 
-<div id="arena">WAIT</div>
+<div id="arena"></div>
 
-<div id="result"></div>
+<div class="result" id="result"></div>
+<button class="hidden" id="restartBtn" onclick="restart()">NEXT PLAYER</button>
 
 <div class="leaderboard">
-  <h2>🏆 TOP REACTIONS</h2>
+  <h2>🏆 LEADERBOARD</h2>
   <ol id="board"></ol>
 </div>
 
 <script>
-/* ---------- AUDIO SYSTEM (OFFLINE) ---------- */
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+/* ---------- AUDIO ---------- */
+const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 
-function playSound(freq, duration, type="sine"){
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = type;
-  osc.frequency.value = freq;
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  gain.gain.value = 0.15;
-  osc.start();
-  osc.stop(audioCtx.currentTime + duration);
+function play(freq,dur,type="sine"){
+  const o=audioCtx.createOscillator();
+  const g=audioCtx.createGain();
+  o.type=type;
+  o.frequency.value=freq;
+  o.connect(g);
+  g.connect(audioCtx.destination);
+  g.gain.value=0.15;
+  o.start();
+  o.stop(audioCtx.currentTime+dur);
 }
 
-function alarmSound(){
-  playSound(200,0.3,"square");
-  setTimeout(()=>playSound(180,0.3,"square"),300);
-}
+function successBeep(){ play(800,0.15,"triangle"); }
 
-function sirenSound(){
+function sirenAlarm(){
   let f=400;
   const id=setInterval(()=>{
-    playSound(f,0.1,"sawtooth");
-    f = f===400 ? 600 : 400;
+    play(f,0.1,"sawtooth");
+    f = f===400 ? 650 : 400;
   },150);
-  setTimeout(()=>clearInterval(id),1500);
+  setTimeout(()=>clearInterval(id),1200);
 }
 
-function successBeep(){
-  playSound(800,0.2,"triangle");
-}
-
-/* ---------- GAME LOGIC ---------- */
-let startTime;
-let state="idle";
-let timeout;
+/* ---------- GAME VARIABLES ---------- */
+const arena=document.getElementById("arena");
+let time=30, timer, score=0, active=false, speed=1200;
 let leaderboard=[];
 
-const arena=document.getElementById("arena");
-const result=document.getElementById("result");
-
+/* ---------- LOAD LEADERBOARD ---------- */
 function loadBoard(){
-  const data=localStorage.getItem("neuroBoard");
-  if(data){leaderboard=JSON.parse(data);updateBoard();}
+  const data=localStorage.getItem("focusBoard");
+  if(data){
+    leaderboard=JSON.parse(data);
+    updateBoard();
+  }
 }
 
+/* ---------- UPDATE LEADERBOARD ---------- */
 function updateBoard(){
   const board=document.getElementById("board");
   board.innerHTML="";
   leaderboard.slice(0,5).forEach(p=>{
     const li=document.createElement("li");
-    li.textContent=`${p.name} (${p.age}) – ${p.time} ms`;
+    li.textContent = `${p.name} – ${p.score}`;
     board.appendChild(li);
   });
 }
 
-function startTest(){
+/* ---------- START GAME ---------- */
+function startGame(){
   audioCtx.resume();
-  const name=document.getElementById("name").value.trim();
-  const age=document.getElementById("age").value.trim();
-  if(!name||!age){alert("Enter name and age");return;}
+  const name=document.getElementById("playerName").value.trim();
+  if(!name){alert("Enter player name");return;}
 
-  result.textContent="";
-  arena.textContent="WAIT";
-  arena.className="";
-  state="waiting";
+  arena.innerHTML="";
+  score=0;
+  time=30;
+  speed=1200;
+  active=true;
 
-  const delay=Math.random()*4000+2000;
+  document.getElementById("score").textContent=score;
+  document.getElementById("time").textContent=time;
+  document.getElementById("result").textContent="";
+  document.getElementById("restartBtn").classList.add("hidden");
 
-  timeout=setTimeout(()=>{
-    const fake=Math.random()<0.4;
-    if(fake){
-      arena.textContent="⚠ FAKE SIGNAL";
-      arena.classList.add("fake");
-      state="fake";
-      alarmSound();
-    }else{
-      arena.textContent="CLICK NOW";
-      arena.classList.add("green");
-      state="go";
-      startTime=Date.now();
-      successBeep();
+  spawnTargets();
+
+  timer=setInterval(()=>{
+    time--;
+    document.getElementById("time").textContent=time;
+    if(time<=0){
+      endGame("⏳ TIME UP!");
     }
-  },delay);
+  },1000);
 }
 
-arena.onclick=()=>{
-  if(state==="waiting"){
-    fail("Too early! System locked.");
-  }
-  else if(state==="fake"){
-    fail("Wrong signal! Test failed.");
-  }
-  else if(state==="go"){
-    const time=Date.now()-startTime;
-    success(time);
-  }
-};
+/* ---------- SPAWN TARGETS ---------- */
+function spawnTargets(){
+  if(!active) return;
 
-function fail(msg){
-  clearTimeout(timeout);
-  arena.className="locked";
-  arena.textContent="LOCKED";
-  result.textContent="⛔ "+msg;
-  result.style.color="red";
-  sirenSound();
-  state="idle";
+  arena.innerHTML="";
+
+  const correct=document.createElement("div");
+  correct.className="target correct";
+  correct.textContent="★";
+  randomPos(correct);
+  correct.onclick=()=>{
+    successBeep();
+    score++;
+    speed=Math.max(350,speed-80);
+    document.getElementById("score").textContent=score;
+    spawnTargets();
+  };
+  arena.appendChild(correct);
+
+  const symbols=["✖","●","▲"];
+  for(let i=0;i<3;i++){
+    const fake=document.createElement("div");
+    fake.className="target fake";
+    fake.textContent=symbols[i];
+    randomPos(fake);
+    fake.onclick=()=>{
+      wrongClick();
+    };
+    arena.appendChild(fake);
+  }
+
+  setTimeout(spawnTargets,speed);
 }
 
-function success(time){
-  const name=document.getElementById("name").value;
-  const age=document.getElementById("age").value;
+/* ---------- RANDOM POSITION ---------- */
+function randomPos(el){
+  el.style.left=Math.random()*280+"px";
+  el.style.top=Math.random()*280+"px";
+}
 
-  result.textContent=`✅ SUCCESS! Reaction: ${time} ms`;
-  result.style.color="lightgreen";
-  successBeep();
+/* ---------- WRONG CLICK ---------- */
+function wrongClick(){
+  if(!active) return;
+  sirenAlarm();
+  endGame("🚨 WRONG TARGET!");
+}
 
-  leaderboard.push({name,age,time});
-  leaderboard.sort((a,b)=>a.time-b.time);
-  localStorage.setItem("neuroBoard",JSON.stringify(leaderboard));
+/* ---------- END GAME ---------- */
+function endGame(msg){
+  active=false;
+  clearInterval(timer);
+  arena.innerHTML="";
+  document.getElementById("result").textContent =
+    msg + " Final Score: " + score;
+
+  saveScore();
+  document.getElementById("restartBtn").classList.remove("hidden");
+}
+
+/* ---------- SAVE SCORE ---------- */
+function saveScore(){
+  const name=document.getElementById("playerName").value;
+  leaderboard.push({name,score});
+  leaderboard.sort((a,b)=>b.score-a.score);
+  localStorage.setItem("focusBoard",JSON.stringify(leaderboard));
   updateBoard();
-  state="idle";
+}
+
+/* ---------- RESTART ---------- */
+function restart(){
+  arena.innerHTML="";
+  document.getElementById("result").textContent="";
+  document.getElementById("playerName").value="";
+  document.getElementById("restartBtn").classList.add("hidden");
 }
 
 loadBoard();
