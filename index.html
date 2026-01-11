@@ -2,200 +2,166 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Rock Paper Scissors - Animation & Score</title>
+<title>Memory Match – Timer Challenge</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
 body {
   margin: 0;
-  height: 100vh;
-  background: #eef2ff;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   font-family: Arial, sans-serif;
-}
-
-.game {
-  background: white;
-  padding: 25px;
-  border-radius: 15px;
-  text-align: center;
-  width: 350px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-}
-
-.hands {
-  display: flex;
-  justify-content: space-between;
-  margin: 20px 0;
-  font-size: 80px;
-  perspective: 800px;
-}
-
-.hand {
-  display: inline-block;
-  transform-origin: bottom center;
-  transition: transform 0.3s ease;
-}
-
-.playing .hand.user {
-  animation: moveForward 1.2s forwards;
-}
-
-.playing .hand.computer {
-  animation: moveForward 1.2s forwards;
-}
-
-@keyframes moveForward {
-  0% { transform: translateZ(0) rotate(0deg); }
-  25% { transform: translateZ(30px) rotate(15deg); }
-  50% { transform: translateZ(60px) rotate(-15deg); }
-  75% { transform: translateZ(30px) rotate(10deg); }
-  100% { transform: translateZ(0) rotate(0deg); }
-}
-
-.buttons button {
-  padding: 10px 14px;
-  margin: 5px;
-  border: none;
-  border-radius: 8px;
-  background: #2563eb;
+  background: #1a1a2e;
   color: white;
-  font-size: 15px;
-  cursor: pointer;
-  transition: background 0.2s;
+  text-align: center;
 }
 
-.buttons button:hover {
-  background: #1e40af;
-}
+h1 { color: #00ffd5; }
 
-#restartBtn {
-  background: #10b981; /* green */
-}
-
-#restartBtn:hover {
-  background: #047857;
-}
-
-.result {
-  margin-top: 15px;
+#timer {
   font-size: 18px;
-  font-weight: bold;
+  margin: 10px;
+  color: yellow;
 }
 
-.scoreboard {
-  margin-top: 15px;
-  font-size: 16px;
-  font-weight: bold;
-  display: flex;
-  justify-content: space-around;
+#game {
+  display: grid;
+  grid-template-columns: repeat(4, 90px);
+  gap: 12px;
+  justify-content: center;
+  margin: 20px auto;
 }
+
+.card {
+  width: 90px;
+  height: 90px;
+  background: #222;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.card.flipped {
+  background: #00ffd5;
+}
+
+button {
+  padding: 10px 20px;
+  background: #00ffd5;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.hidden { display: none; }
 </style>
 </head>
 
 <body>
 
-<div class="game" id="game">
-  <h2>Rock Paper Scissors</h2>
+<h1>🧠 Memory Match</h1>
+<div id="timer">⏱ Time Left: <span id="time">60</span>s</div>
 
-  <div class="hands">
-    <div class="hand user" id="userHand">✊</div>
-    <div class="hand computer" id="computerHand">✊</div>
-  </div>
+<div id="game"></div>
 
-  <div class="buttons">
-    <button onclick="play('rock')">✊ Rock</button>
-    <button onclick="play('paper')">✋ Paper</button>
-    <button onclick="play('scissors')">✌ Scissors</button>
-    <button id="restartBtn" onclick="restartGame()" style="display:none;">🔄 Restart</button>
-  </div>
+<div id="result"></div>
 
-  <div class="result" id="result">Choose your move</div>
-
-  <div class="scoreboard">
-    <div>User: <span id="userScore">0</span></div>
-    <div>AI: <span id="aiScore">0</span></div>
-  </div>
-</div>
+<button onclick="startGame()">🔄 Restart</button>
 
 <script>
-const userHand = document.getElementById("userHand");
-const computerHand = document.getElementById("computerHand");
-const result = document.getElementById("result");
-const game = document.getElementById("game");
-const userScoreEl = document.getElementById("userScore");
-const aiScoreEl = document.getElementById("aiScore");
-const restartBtn = document.getElementById("restartBtn");
+const animals = ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼"];
 
-let userScore = 0;
-let aiScore = 0;
+let cards = [];
+let firstCard = null;
+let secondCard = null;
+let lock = false;
+let matched = 0;
+let timeLeft = 60;
+let timer;
 
-const hands = {
-  rock: "✊",
-  paper: "✋",
-  scissors: "✌"
-};
+function startGame() {
+  clearInterval(timer);
+  const game = document.getElementById("game");
+  document.getElementById("result").textContent = "";
+  game.innerHTML = "";
+  matched = 0;
+  firstCard = null;
+  secondCard = null;
+  lock = false;
+  timeLeft = 60;
+  document.getElementById("time").textContent = timeLeft;
 
-function play(userChoice) {
-  if (userScore === 3 || aiScore === 3) return; // Best of 5
+  cards = [...animals, ...animals].sort(() => Math.random() - 0.5);
 
-  const choices = ["rock", "paper", "scissors"];
-  const computerChoice = choices[Math.floor(Math.random() * 3)];
+  cards.forEach(symbol => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.symbol = symbol;
+    card.textContent = "❓";
+    card.onclick = () => flipCard(card);
+    game.appendChild(card);
+  });
 
-  // Reset hands to rock for animation
-  userHand.textContent = "✊";
-  computerHand.textContent = "✊";
-
-  game.classList.add("playing");
-  result.innerText = "Rock... Paper... Scissors...";
-
-  setTimeout(() => {
-    userHand.textContent = hands[userChoice];
-    computerHand.textContent = hands[computerChoice];
-    game.classList.remove("playing");
-
-    // Determine winner
-    if (userChoice === computerChoice) {
-      result.innerText = "It's a Draw 🤝";
-    } else if (
-      (userChoice === "rock" && computerChoice === "scissors") ||
-      (userChoice === "paper" && computerChoice === "rock") ||
-      (userChoice === "scissors" && computerChoice === "paper")
-    ) {
-      userScore++;
-      result.innerText = "You Win 🎉";
-    } else {
-      aiScore++;
-      result.innerText = "You Lose 😢";
+  timer = setInterval(() => {
+    timeLeft--;
+    document.getElementById("time").textContent = timeLeft;
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      endGame(false);
     }
-
-    userScoreEl.textContent = userScore;
-    aiScoreEl.textContent = aiScore;
-
-    // Check for Best-of-5 winner
-    if (userScore === 3) {
-      result.innerText = "🏆 You won the best of 5!";
-      restartBtn.style.display = "inline-block"; // Show restart
-    }
-    if (aiScore === 3) {
-      result.innerText = "🤖 AI won the best of 5!";
-      restartBtn.style.display = "inline-block"; // Show restart
-    }
-  }, 1200);
+  }, 1000);
 }
 
-function restartGame() {
-  userScore = 0;
-  aiScore = 0;
-  userScoreEl.textContent = userScore;
-  aiScoreEl.textContent = aiScore;
-  result.innerText = "Choose your move";
-  userHand.textContent = "✊";
-  computerHand.textContent = "✊";
-  restartBtn.style.display = "none"; // Hide restart
+function flipCard(card) {
+  if (lock || card === firstCard || card.classList.contains("flipped") || timeLeft <= 0) return;
+
+  card.classList.add("flipped");
+  card.textContent = card.dataset.symbol;
+
+  if (!firstCard) {
+    firstCard = card;
+    return;
+  }
+
+  secondCard = card;
+  lock = true;
+
+  if (firstCard.dataset.symbol === secondCard.dataset.symbol) {
+    matched++;
+    resetTurn();
+    if (matched === animals.length) {
+      clearInterval(timer);
+      endGame(true);
+    }
+  } else {
+    setTimeout(() => {
+      firstCard.classList.remove("flipped");
+      secondCard.classList.remove("flipped");
+      firstCard.textContent = "❓";
+      secondCard.textContent = "❓";
+      resetTurn();
+    }, 700);
+  }
 }
+
+function resetTurn() {
+  firstCard = null;
+  secondCard = null;
+  lock = false;
+}
+
+function endGame(win) {
+  const result = document.getElementById("result");
+  if (win) {
+    result.textContent = "🎉 YOU WIN! Escaped in time!";
+    result.style.color = "lightgreen";
+  } else {
+    result.textContent = "⛔ TIME OVER! You are trapped!";
+    result.style.color = "red";
+  }
+}
+startGame();
 </script>
 
 </body>
